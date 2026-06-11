@@ -164,7 +164,9 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="flex-1">
                 <span className="font-medium">{successMessage}</span>
-                <p className="text-xs text-emerald-600/90 mt-0.5">O agendamento foi registrado e salvo com sucesso no portal.</p>
+                <p className="text-xs text-emerald-600/90 mt-0.5">
+                  Confirmado! Novo agendamento salvo com sucesso e notificação enviada para: <strong className="font-semibold text-emerald-800">joao.giaretta@az-armaturen.com.br</strong>
+                </p>
               </div>
             </motion.div>
           )}

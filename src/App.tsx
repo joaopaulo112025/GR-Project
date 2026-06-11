@@ -14,6 +14,62 @@ import firebaseConfig from "../firebase-applet-config.json";
 const clientApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const clientDb = getFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
 
+const sendClientEmailNotification = async (schedule: GRSchedule) => {
+  const accessKey = (import.meta as any).env?.VITE_WEB3FORMS_ACCESS_KEY;
+  if (!accessKey) {
+    console.log("[Client Email] VITE_WEB3FORMS_ACCESS_KEY não configurado. Se quiser enviar e-mails diretamente da Vercel (servidor estático), cadastre uma chave gratuita em https://web3forms.com e defina nas Configurações da Vercel.");
+    return;
+  }
+
+  // Format date from YYYY-MM-DD to DD/MM/YYYY
+  const dateParts = schedule.data.split("-");
+  const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : schedule.data;
+
+  try {
+    const payload = {
+      access_key: accessKey,
+      from_name: "Portal GR Plano de Ação",
+      subject: `🔔 Novo Agendamento: ${schedule.vendedor} - ${formattedDate}`,
+      to_email: "joao.giaretta@az-armaturen.com.br",
+      message: `
+Olá João,
+
+Um novo agendamento foi preenchido com sucesso e gravado diretamente no seu banco de dados Firestore!
+
+DETALHES DO EVENTO:
+=============================
+Vendedor: ${schedule.vendedor}
+Projeto: ${schedule.projeto}
+Data: ${formattedDate}
+Horário: ${schedule.horario}
+Status: Confirmado no Banco de Dados
+Data do Registro: ${new Date(schedule.createdAt).toLocaleString("pt-BR")}
+=============================
+
+E-mail disparado de forma segura diretamente da sua infraestrutura frontend na Vercel (Web3Forms Fallback).
+`
+    };
+
+    const response = await fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      console.log("[Client Email] Notificação enviada com sucesso ao e-mail de João!");
+    } else {
+      console.error("[Client Email] Erro retornado pela API Web3Forms ao processar envio:", result);
+    }
+  } catch (err) {
+    console.error("[Client Email] Falha de conexão para enviar e-mail pelo cliente:", err);
+  }
+};
+
 export default function App() {
   const [schedules, setSchedules] = useState<GRSchedule[]>([]);
   const [activeTab, setActiveTab] = useState<"booking" | "calendar">("booking");
@@ -82,6 +138,11 @@ export default function App() {
       try {
         await setDoc(doc(clientDb, "schedules", newSchedule.id), newSchedule);
         setSchedules((prev) => [newSchedule, ...prev]);
+        
+        // Disparar e-mail diretamente do cliente em caso de Vercel/Static fallback
+        sendClientEmailNotification(newSchedule).catch(emailCErr => {
+          console.error("Erro assíncrono ao disparar e-mail de cliente:", emailCErr);
+        });
       } catch (fsErr) {
         console.error("Erro ao salvar no Firestore direto no cliente:", fsErr);
       }
