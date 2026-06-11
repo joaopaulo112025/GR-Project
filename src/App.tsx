@@ -11,12 +11,18 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"booking" | "calendar">("booking");
   const [preselectedDate, setPreselectedDate] = useState<string>("");
 
-  // Fetch schedules from backend database
+  // Fetch schedules from backend database with 3-second polling for real-time synchronization
   useEffect(() => {
-    fetch("/api/schedules")
-      .then((res) => res.json())
-      .then((data) => setSchedules(data))
-      .catch((err) => console.error("Erro ao buscar agendamentos do backend:", err));
+    const loadData = () => {
+      fetch("/api/schedules")
+        .then((res) => res.json())
+        .then((data) => setSchedules(data))
+        .catch((err) => console.error("Erro ao buscar agendamentos do backend:", err));
+    };
+
+    loadData();
+    const interval = setInterval(loadData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleAddSchedule = (newData: { vendedor: string; projeto: string; data: string; horario: string }) => {
