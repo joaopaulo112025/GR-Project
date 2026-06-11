@@ -237,15 +237,6 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               required
             />
           </div>
-          {data && isSystemBlockedDate(data).blocked && (
-            <div className="mt-2 flex items-start gap-2 p-2.5 px-3.5 bg-red-50 border border-red-150 rounded-xl text-xs text-red-700 animate-pulse font-medium">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
-              <div>
-                <span className="font-bold block">Aviso de Bloqueio</span>
-                <span>{isSystemBlockedDate(data).reason}</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Horários Interativos */}
