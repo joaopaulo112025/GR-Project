@@ -42,7 +42,37 @@ export function isSystemBlockedSlot(slot: TimeSlot): { blocked: boolean; reason:
     return { blocked: true, reason: "Bloqueado (Almoço 12:00 - 13:30)" };
   }
   if (slot === "17:00") {
-    return { blocked: true, reason: "Bloqueado (≥ 17:00 às 08:00)" };
+    return { blocked: true, reason: "Bloqueado (Espanha / Fora de Horário)" };
   }
   return { blocked: false, reason: "" };
 }
+
+export function isSystemBlockedDate(dateStr: string): { blocked: boolean; reason: string } {
+  if (!dateStr) return { blocked: false, reason: "" };
+
+  if (dateStr === "2026-06-11") {
+    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 11/06/2026)" };
+  }
+  if (dateStr === "2026-06-12") {
+    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 12/06/2026)" };
+  }
+
+  try {
+    const parts = dateStr.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const dateObj = new Date(year, month, day);
+      const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return { blocked: true, reason: `Bloqueado (Fim de semana: ${dayOfWeek === 0 ? "Domingo" : "Sábado"})` };
+      }
+    }
+  } catch (e) {
+    // Ignore error
+  }
+
+  return { blocked: false, reason: "" };
+}
+

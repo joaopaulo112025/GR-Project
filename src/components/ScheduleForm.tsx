@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Folder, Calendar, Clock, AlertCircle, CheckCircle, Sparkles, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { GRSchedule, TimeSlot, TIME_SLOT_LABELS, isSystemBlockedSlot } from "../types";
+import { GRSchedule, TimeSlot, TIME_SLOT_LABELS, isSystemBlockedSlot, isSystemBlockedDate } from "../types";
 
 interface ScheduleFormProps {
   onAddSchedule: (schedule: { vendedor: string; projeto: string; data: string; horario: string }) => void;
@@ -19,8 +19,24 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
 
   // Clean success or error feedback when fields change
   useEffect(() => {
-    if (errorMessage) setErrorMessage("");
+    if (errorMessage && !errorMessage.includes("Bloqueado")) {
+      setErrorMessage("");
+    }
   }, [vendedor, projeto, data, horario]);
+
+  // Handle immediate error warning when choosing a blocked date
+  useEffect(() => {
+    if (data) {
+      const dateBlock = isSystemBlockedDate(data);
+      if (dateBlock.blocked) {
+        setErrorMessage(dateBlock.reason);
+        setHorario("");
+      } else {
+        // Clear message if it was a date block message
+        setErrorMessage(prev => prev.includes("Bloqueado") ? "" : prev);
+      }
+    }
+  }, [data]);
 
   // Helper to find booking details for a slot on the selected date
   const getSlotBooking = (slot: string) => {
@@ -43,6 +59,13 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
       setErrorMessage("Por favor, selecione uma data.");
       return;
     }
+
+    const dateBlock = isSystemBlockedDate(data);
+    if (dateBlock.blocked) {
+      setErrorMessage(dateBlock.reason);
+      return;
+    }
+
     if (!horario) {
       setErrorMessage("Por favor, escolha um horário disponível.");
       return;
@@ -195,7 +218,9 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
             Data da GR
           </label>
           <div className="relative">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 pointer-events-none">
+            <span className={`absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none ${
+              data && isSystemBlockedDate(data).blocked ? "text-red-500" : "text-slate-400"
+            }`}>
               <Calendar className="w-4 h-4" />
             </span>
             <input
@@ -203,11 +228,24 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               id="data-input"
               value={data}
               onChange={(e) => setData(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500 transition-all text-sm font-sans"
+              className={`w-full pl-10 pr-4 py-2.5 rounded-xl transition-all text-sm font-sans focus:outline-none focus:ring-2 ${
+                data && isSystemBlockedDate(data).blocked
+                  ? "bg-red-50/55 border-red-300 text-red-900 focus:ring-red-500/20 focus:border-red-500"
+                  : "bg-slate-50/50 border-slate-200 text-slate-800 focus:ring-blue-500/25 focus:border-blue-500"
+              }`}
               min={new Date().toISOString().split("T")[0]} // Blocks past dates
               required
             />
           </div>
+          {data && isSystemBlockedDate(data).blocked && (
+            <div className="mt-2 flex items-start gap-2 p-2.5 px-3.5 bg-red-50 border border-red-150 rounded-xl text-xs text-red-700 animate-pulse font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+              <div>
+                <span className="font-bold block">Aviso de Bloqueio</span>
+                <span>{isSystemBlockedDate(data).reason}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Horários Interativos */}
@@ -218,11 +256,14 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" id="slots-grid">
             {timeSlots.map((slot) => {
+              const dateBlock = isSystemBlockedDate(data);
+              const isDateBlocked = dateBlock.blocked;
               const booking = getSlotBooking(slot);
               const isOccupied = booking !== null;
               const isSelected = horario === slot;
               const blockInfo = isSystemBlockedSlot(slot);
-              const isBlocked = blockInfo.blocked;
+              const isBlocked = blockInfo.blocked || isDateBlocked;
+              const blockReason = isDateBlocked ? "Data Bloqueada" : blockInfo.reason;
 
               return (
                 <button
@@ -233,7 +274,9 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                   onClick={() => setHorario(slot)}
                   className={`flex flex-col text-left p-3 rounded-xl border transition-all relative ${
                     isBlocked
-                      ? "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-75"
+                      ? isDateBlocked
+                        ? "bg-red-50/60 border-red-200 text-red-700 cursor-not-allowed opacity-80"
+                        : "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-75"
                       : isOccupied
                       ? "bg-slate-50 border-slate-150 text-slate-400 cursor-not-allowed opacity-75"
                       : isSelected
@@ -243,7 +286,11 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                 >
                   <div className="flex items-center gap-1.5 font-medium text-sm">
                     {isBlocked ? (
-                      <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      isDateBlocked ? (
+                        <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      )
                     ) : (
                       <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     )}
@@ -252,10 +299,14 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                     </span>
                   </div>
                   <span className={`text-[10px] mt-1 font-sans font-medium flex items-center gap-1 ${
-                    isBlocked ? "text-amber-600" : "text-inherit opacity-85"
+                    isDateBlocked
+                      ? "text-red-600 font-semibold"
+                      : isBlocked
+                      ? "text-amber-600"
+                      : "text-inherit opacity-85"
                   }`}>
                     {isBlocked ? (
-                      <span>{blockInfo.reason}</span>
+                      <span>{blockReason}</span>
                     ) : isOccupied ? (
                       `Reservado por: ${booking.vendedor}`
                     ) : isSelected ? (

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Clock, User, CheckCircle, Lightbulb, Sparkles, AlertCircle } from "lucide-react";
-import { GRSchedule, TIME_SLOT_LABELS, TimeSlot } from "../types";
+import { GRSchedule, TIME_SLOT_LABELS, TimeSlot, isSystemBlockedDate } from "../types";
 
 interface CalendarWideViewProps {
   schedules: GRSchedule[];
@@ -190,6 +190,8 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
 
             const cellISO = formatDateISO(cell);
             const isToday = cellISO === todayStr;
+            const blockInfo = isSystemBlockedDate(cellISO);
+            const isBlocked = blockInfo.blocked;
 
             // Find all schedules booked for this day
             const cellSchedules = schedules.filter((s) => s.data === cellISO);
@@ -202,7 +204,9 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                   onSelectDate(cellISO);
                 }}
                 className={`bg-white p-2 min-h-[70px] sm:min-h-[105px] border-t border-slate-100 transition-all cursor-pointer flex flex-col justify-between group ${
-                  isToday
+                  isBlocked
+                    ? "bg-red-50/15 hover:bg-red-50/30 border-red-100"
+                    : isToday
                     ? "bg-blue-50/25 ring-2 ring-blue-500/10"
                     : "hover:bg-slate-50/80"
                 }`}
@@ -211,7 +215,9 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                 <div className="flex justify-between items-center mb-1">
                   <span
                     className={`text-xs font-bold leading-none w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday
+                      isBlocked
+                        ? "bg-red-100 text-red-700 line-through"
+                        : isToday
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-700 group-hover:text-blue-600"
                     }`}
@@ -219,7 +225,15 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                     {cell.getDate()}
                   </span>
 
-                  {totalBookedCount > 0 && (
+                  {isBlocked ? (
+                    <span 
+                      className="text-[9px] font-bold px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full flex items-center gap-1 shrink-0"
+                      title={blockInfo.reason}
+                    >
+                      <AlertCircle className="w-2.5 h-2.5" />
+                      Bloqueado
+                    </span>
+                  ) : totalBookedCount > 0 ? (
                     <span 
                       className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                         totalBookedCount >= 4 
@@ -230,24 +244,32 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                     >
                       {totalBookedCount} {totalBookedCount === 1 ? "reunião" : "reuniões"}
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Scheduled Slots Container */}
                 <div className="flex-1 space-y-1 overflow-y-auto max-h-[60px] scrollbar-thin">
-                  {cellSchedules.map((schedule) => (
-                    <div
-                      key={schedule.id}
-                      className="text-[10px] bg-slate-100 hover:bg-sky-50 text-slate-700 p-0.5 px-1.5 rounded-md truncate font-sans flex items-center gap-1 border border-slate-200/50"
-                      title={`${schedule.horario} - Vendedor: ${schedule.vendedor}`}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
-                      <strong className="text-slate-800 font-semibold">{schedule.horario}</strong>
-                      <span className="truncate opacity-90">- {schedule.vendedor}</span>
+                  {isBlocked ? (
+                    <div className="text-[10px] text-red-650 font-medium px-1 flex flex-col justify-center leading-tight py-1 font-sans">
+                      <span className="font-semibold opacity-90 truncate text-red-600" title={blockInfo.reason}>
+                        {blockInfo.reason.replace("Bloqueado (", "").replace(")", "")}
+                      </span>
                     </div>
-                  ))}
+                  ) : (
+                    cellSchedules.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        className="text-[10px] bg-slate-100 hover:bg-sky-50 text-slate-700 p-0.5 px-1.5 rounded-md truncate font-sans flex items-center gap-1 border border-slate-200/50"
+                        title={`${schedule.horario} - Vendedor: ${schedule.vendedor}`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                        <strong className="text-slate-800 font-semibold">{schedule.horario}</strong>
+                        <span className="truncate opacity-90">- {schedule.vendedor}</span>
+                      </div>
+                    ))
+                  )}
                   
-                  {totalBookedCount === 0 && (
+                  {totalBookedCount === 0 && !isBlocked && (
                     <div className="hidden group-hover:flex items-center justify-center h-full text-[10px] text-blue-500 font-medium">
                       + Agendar
                     </div>
