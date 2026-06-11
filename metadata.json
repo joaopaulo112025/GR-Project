@@ -1,0 +1,6 @@
+{
+  "name": "Gestão de resultados de projetos",
+  "description": "Aplicativo para gerenciamento e agendamento de reuniões para Gestão de resultados de projetos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
