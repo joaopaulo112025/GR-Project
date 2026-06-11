@@ -6,6 +6,14 @@ import ScheduleForm from "./components/ScheduleForm";
 import ScheduleList from "./components/ScheduleList";
 import CalendarWideView from "./components/CalendarWideView";
 
+// Direct client-side Firebase initialization fallback for static deployments (like Vercel)
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
+import firebaseConfig from "../firebase-applet-config.json";
+
+const clientApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+const clientDb = getFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
+
 export default function App() {
   const [schedules, setSchedules] = useState<GRSchedule[]>([]);
   const [activeTab, setActiveTab] = useState<"booking" | "calendar">("booking");
@@ -13,19 +21,42 @@ export default function App() {
 
   // Fetch schedules from backend database with 3-second polling for real-time synchronization
   useEffect(() => {
-    const loadData = () => {
-      fetch("/api/schedules")
-        .then((res) => res.json())
-        .then((data) => setSchedules(data))
-        .catch((err) => console.error("Erro ao buscar agendamentos do backend:", err));
+    let active = true;
+
+    const loadData = async () => {
+      try {
+        const res = await fetch("/api/schedules");
+        if (!res.ok) throw new Error("Status " + res.status);
+        const data = await res.json();
+        if (active) {
+          setSchedules(data || []);
+        }
+      } catch (err) {
+        console.warn("Express backend API offline ou indisponível. Buscando diretamente do Firestore no cliente:", err);
+        try {
+          const qSnapshot = await getDocs(collection(clientDb, "schedules"));
+          const list: GRSchedule[] = [];
+          qSnapshot.forEach((docRef) => {
+            list.push({ id: docRef.id, ...docRef.data() } as GRSchedule);
+          });
+          if (active) {
+            setSchedules(list);
+          }
+        } catch (fsErr) {
+          console.error("Erro ao ler do Firestore direto no cliente:", fsErr);
+        }
+      }
     };
 
     loadData();
     const interval = setInterval(loadData, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  const handleAddSchedule = (newData: { vendedor: string; projeto: string; data: string; horario: string }) => {
+  const handleAddSchedule = async (newData: { vendedor: string; projeto: string; data: string; horario: string }) => {
     const newSchedule: GRSchedule = {
       id: `gr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       vendedor: newData.vendedor,
@@ -35,28 +66,44 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    fetch("/api/schedules", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(newSchedule),
-    })
-      .then((res) => res.json())
-      .then((saved) => {
-        setSchedules((prev) => [saved, ...prev]);
-      })
-      .catch((err) => console.error("Erro ao enviar novo agendamento:", err));
+    try {
+      const res = await fetch("/api/schedules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newSchedule),
+      });
+      if (!res.ok) throw new Error("Backend post error status: " + res.status);
+      const saved = await res.json();
+      setSchedules((prev) => [saved, ...prev]);
+    } catch (err) {
+      console.warn("Falha ao salvar no Express. Enviando agendamento direto para o Firestore no cliente...", err);
+      try {
+        await setDoc(doc(clientDb, "schedules", newSchedule.id), newSchedule);
+        setSchedules((prev) => [newSchedule, ...prev]);
+      } catch (fsErr) {
+        console.error("Erro ao salvar no Firestore direto no cliente:", fsErr);
+      }
+    }
   };
 
-  const handleDeleteSchedule = (id: string) => {
-    fetch(`/api/schedules/${id}`, {
-      method: "DELETE",
-    })
-      .then(() => {
-        setSchedules((prev) => prev.filter(item => item.id !== id));
-      })
-      .catch((err) => console.error("Erro ao excluir agendamento do backend:", err));
+  const handleDeleteSchedule = async (id: string) => {
+    try {
+      const res = await fetch(`/api/schedules/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Backend delete error status: " + res.status);
+      setSchedules((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      console.warn("Falha ao excluir no Express. Removendo agendamento direto no Firestore do cliente...", err);
+      try {
+        await deleteDoc(doc(clientDb, "schedules", id));
+        setSchedules((prev) => prev.filter((item) => item.id !== id));
+      } catch (fsErr) {
+        console.error("Erro ao excluir do Firestore direto no cliente:", fsErr);
+      }
+    }
   };
 
   // Compute neat KPI statistics

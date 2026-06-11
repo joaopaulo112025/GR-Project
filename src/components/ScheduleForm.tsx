@@ -281,8 +281,18 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                       {TIME_SLOT_LABELS[slot]}
                     </span>
                   </div>
+                  {isOccupied && booking && (
+                    <span className="text-[10px] mt-0.5 font-sans font-medium text-red-600/80 truncate max-w-full">
+                      Reservado por: {booking.vendedor}
+                    </span>
+                  )}
+                  {isBlocked && (
+                    <span className="text-[10px] mt-0.5 font-sans font-medium text-red-500/70 truncate max-w-full">
+                      {blockInfo.reason || "Indisponível"}
+                    </span>
+                  )}
                   {!isUnavailable && (
-                    <span className="text-[10px] mt-1 font-sans font-medium flex items-center gap-1 text-inherit opacity-85">
+                    <span className="text-[10px] mt-0.5 font-sans font-medium flex items-center gap-1 text-inherit opacity-85">
                       {isSelected ? "Selecionado" : "Livre"}
                     </span>
                   )}
