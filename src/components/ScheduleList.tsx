@@ -1,11 +1,21 @@
-import { useState } from "react";
-import { Search, Calendar, User, Folder, Clock, Trash2, Filter, AlertCircle, Mail, HelpCircle, ChevronDown, ChevronUp, Send, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Calendar, User, Folder, Clock, Trash2, Filter, AlertCircle, Mail, HelpCircle, ChevronDown, ChevronUp, Send, CheckCircle2, Loader2, ArrowRight, RefreshCw, Eye, ShieldAlert, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { GRSchedule, TIME_SLOT_LABELS, TimeSlot, getLocalDateString } from "../types";
 
 interface ScheduleListProps {
   schedules: GRSchedule[];
   onDeleteSchedule: (id: string) => void;
+}
+
+interface NotificationLog {
+  id: string;
+  to: string;
+  subject: string;
+  body: string;
+  status: "Simulado" | "Enviado" | "Erro";
+  errorDetails?: string;
+  createdAt: string;
 }
 
 export default function ScheduleList({ schedules, onDeleteSchedule }: ScheduleListProps) {
@@ -15,6 +25,41 @@ export default function ScheduleList({ schedules, onDeleteSchedule }: ScheduleLi
   const [showEmailInfo, setShowEmailInfo] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "loading" | "success" | "error" | "simulator">("idle");
   const [testMessage, setTestMessage] = useState("");
+
+  const [notifications, setNotifications] = useState<NotificationLog[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<NotificationLog | null>(null);
+
+  const fetchNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const response = await fetch("/api/notifications");
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar notificações do servidor:", e);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showEmailInfo) {
+      fetchNotifications();
+    }
+  }, [showEmailInfo, schedules]);
+
+  const handleClearNotifications = async () => {
+    try {
+      await fetch("/api/notifications/clear", { method: "POST" });
+      setNotifications([]);
+      setSelectedNotification(null);
+    } catch (e) {
+      console.error("Erro ao limpar notificações:", e);
+    }
+  };
 
   // Parse schedules with filters
   const todayStr = getLocalDateString();
@@ -76,9 +121,11 @@ export default function ScheduleList({ schedules, onDeleteSchedule }: ScheduleLi
       if (result.success) {
         setTestStatus("success");
         setTestMessage(result.message);
+        fetchNotifications();
       } else {
         if (result.mode === "simulator") {
           setTestStatus("simulator");
+          fetchNotifications();
         } else {
           setTestStatus("error");
         }
@@ -305,8 +352,169 @@ export default function ScheduleList({ schedules, onDeleteSchedule }: ScheduleLi
                   </div>
                 </motion.div>
               )}
+
+              {/* HISTÓRICO DE E-MAILS & SIMULADOR DE CAIXA DE ENTRADA */}
+              <div className="pt-4 border-t border-slate-200 mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 animate-fade-in">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <h5 className="font-bold text-slate-800 text-xs">Simulador de Caixa de Entrada (Inbox)</h5>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={fetchNotifications}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg transition-all hover:cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loadingNotifications ? "animate-spin" : ""}`} />
+                      <span>Atualizar</span>
+                    </button>
+                    {notifications.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearNotifications}
+                        className="text-[11px] font-medium text-rose-600 hover:text-rose-700 hover:cursor-pointer"
+                      >
+                        Limpar Canal
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Toda vez que você cria ou deleta agendamentos, o servidor gera automaticamente o e-mail real formatado para <strong className="font-semibold text-slate-700">joao.giaretta@az-armaturen.com.br</strong>. Se o SMTP estiver ausente, você pode <strong>validar o conteúdo e formatação exata do e-mail</strong> clicando nos itens abaixo:
+                </p>
+
+                {loadingNotifications && notifications.length === 0 ? (
+                  <div className="py-6 flex flex-col items-center justify-center gap-2 bg-white/50 border border-dashed border-slate-200 rounded-xl text-slate-400">
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    <span className="text-xs">Buscando e-mails recentes...</span>
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="py-8 flex flex-col items-center justify-center bg-white/50 border border-dashed border-slate-200 rounded-xl text-center px-4">
+                    <Mail className="w-6 h-6 text-slate-300 mb-1.5" />
+                    <span className="text-xs text-slate-700 font-medium">Nenhuma notificação enviada ainda</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Faça um agendamento na aba lateral ou clique em "Disparar Teste" acima para conferir!</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {notifications.map((notif) => {
+                      const dateObj = new Date(notif.createdAt);
+                      const displayTime = isNaN(dateObj.getTime())
+                        ? "Agora"
+                        : dateObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+                      return (
+                        <div
+                          key={notif.id}
+                          className="flex items-center justify-between p-3 bg-white hover:bg-slate-100/70 border border-slate-100 rounded-xl transition-all gap-3 text-xs"
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              notif.status === "Enviado"
+                                ? "bg-emerald-500"
+                                : notif.status === "Simulado"
+                                ? "bg-amber-400"
+                                : "bg-rose-500"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-semibold text-slate-800 block truncate">{notif.subject}</span>
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                <span className={`px-1 rounded-sm uppercase tracking-wider text-[8px] font-bold ${
+                                  notif.status === "Enviado"
+                                    ? "bg-emerald-50 text-emerald-600"
+                                    : notif.status === "Simulado"
+                                    ? "bg-amber-50 text-amber-700"
+                                    : "bg-rose-50 text-rose-600"
+                                }`}>
+                                  {notif.status}
+                                </span>
+                                <span>•</span>
+                                <span>Para: {notif.to}</span>
+                                <span>•</span>
+                                <span>{displayTime}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedNotification(notif)}
+                              className="px-2.5 py-1.5 hover:cursor-pointer bg-blue-50 text-blue-600 hover:bg-blue-100 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1 shrink-0"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Abrir E-mail</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* HTML Email Sandbox Modal */}
+      <AnimatePresence>
+        {selectedNotification && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-2xl flex flex-col max-h-[85vh] overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white flex-none">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                    <h3 className="font-display font-semibold text-slate-800 text-sm">Visualizador de E-mail (Simulador)</h3>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Destinatário: <strong className="text-slate-600">{selectedNotification.to}</strong></p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedNotification(null)}
+                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 hover:cursor-pointer border border-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-all"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              {/* Modal Details Bar */}
+              <div className="p-4 bg-slate-50 text-xs text-slate-600 border-b border-slate-200 flex-none space-y-1">
+                <div><strong>Assunto:</strong> {selectedNotification.subject}</div>
+                {selectedNotification.errorDetails && (
+                  <div className="text-rose-600 bg-rose-50 border border-rose-100 p-2 rounded-lg text-[11px] leading-relaxed flex items-center gap-1.5 mt-1">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <span><strong>Erro reportado por SMTP:</strong> {selectedNotification.errorDetails}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Iframe sandbox rendering target HTML */}
+              <div className="flex-1 min-h-[350px] p-2 bg-slate-100 overflow-hidden relative">
+                <iframe
+                  title="email-rendered-ui"
+                  srcDoc={selectedNotification.body}
+                  className="w-full h-full border-none rounded-xl bg-white shadow-sm"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400 bg-white flex-none">
+                <span>Status da Notificação: <strong className={`font-semibold ${
+                  selectedNotification.status === "Enviado" ? "text-emerald-600" : "text-amber-600"
+                }`}>{selectedNotification.status}</strong></span>
+                <span>Enviado às: {new Date(selectedNotification.createdAt).toLocaleTimeString("pt-BR")}</span>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

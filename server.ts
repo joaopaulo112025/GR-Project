@@ -70,13 +70,95 @@ async function startServer() {
     const port = process.env.SMTP_PORT;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
+    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    // Format date from YYYY-MM-DD to DD/MM/YYYY
+    const dateParts = schedule.data.split("-");
+    const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : schedule.data;
+    const subject = `🔔 Novo Agendamento: ${schedule.vendedor} - ${formattedDate}`;
 
     console.log(`[Email Service] Nova tentativa de envio para ${emailTo}...`);
+
+    const htmlBody = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
+          .header { background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 32px 24px; text-align: center; color: #ffffff; }
+          .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+          .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
+          .content { padding: 32px 24px; }
+          .details-box { background-color: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+          .detail-row { display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; padding: 10px 0; }
+          .detail-row:last-child { border-bottom: none; }
+          .label { font-weight: 600; color: #475569; font-size: 14px; }
+          .value { color: #0f172a; font-size: 14px; text-align: right; }
+          .footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+          .btn { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 14px; margin-top: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>GR Plano de Ação</h1>
+            <p>Confirmação de Agendamento de Reunião</p>
+          </div>
+          <div class="content">
+            <h2 style="margin-top: 0; font-size: 18px; color: #1e3a8a;">Olá, João!</h2>
+            <p>Um novo compromisso de trabalho foi agendado com sucesso no portal de agendamentos. Veja os detalhes abaixo:</p>
+            
+            <div class="details-box">
+              <div class="detail-row">
+                <span class="label">Vendedor:</span>
+                <span class="value" style="font-weight: 600;">${schedule.vendedor}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Projeto:</span>
+                <span class="value">${schedule.projeto}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Data da Reunião:</span>
+                <span class="value" style="font-weight: 600; color: #2563eb;">${formattedDate}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Horário Solicitado:</span>
+                <span class="value" style="font-weight: 600; color: #2563eb;">${schedule.horario}</span>
+              </div>
+              <div class="detail-row">
+                <span class="label">Status:</span>
+                <span class="value" style="color: #10b981; font-weight: 600;">✓ Confirmado</span>
+              </div>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="#" class="btn">Acessar Portal de Agendamentos</a>
+            </div>
+          </div>
+          <div class="footer">
+            <p>Este é um e-mail automático enviado pelo Portal de Agendamentos GR Plano de Ação.</p>
+            <p>&copy; ${new Date().getFullYear()} GR Plano de Ação. Todos os direitos reservados.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
 
     if (!host || !user || !pass) {
       console.log("[Email Service] Variáveis SMTP não configuradas no servidor. Ativando simulador de envio para João.");
       console.log(`[Email Simulador] E-mail enviado com sucesso para: ${emailTo}`);
       console.log(`[Email Simulador] Conteúdo: Vendedor=${schedule.vendedor}, Projeto=${schedule.projeto}, Data=${schedule.data}, Horário=${schedule.horario}`);
+      
+      await saveNotificationLog({
+        id: notifId,
+        to: emailTo,
+        subject: subject,
+        body: htmlBody,
+        status: "Simulado",
+        createdAt: new Date().toISOString()
+      });
       return;
     }
 
@@ -91,90 +173,78 @@ async function startServer() {
         },
       });
 
-      // Format date from YYYY-MM-DD to DD/MM/YYYY
-      const dateParts = schedule.data.split("-");
-      const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : schedule.data;
-
-      const mailOptions = {
+      await transporter.sendMail({
         from: `"Portal GR Plano de Ação" <${user}>`,
         to: emailTo,
-        subject: `🔔 Novo Agendamento: ${schedule.vendedor} - ${formattedDate}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 0; }
-              .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
-              .header { background: linear-gradient(135deg, #1e3a8a, #3b82f6); padding: 32px 24px; text-align: center; color: #ffffff; }
-              .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-              .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
-              .content { padding: 32px 24px; }
-              .details-box { background-color: #f1f5f9; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
-              .detail-row { display: flex; justify-content: space-between; border-bottom: 1px solid #cbd5e1; padding: 10px 0; }
-              .detail-row:last-child { border-bottom: none; }
-              .label { font-weight: 600; color: #475569; font-size: 14px; }
-              .value { color: #0f172a; font-size: 14px; text-align: right; }
-              .footer { background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
-              .btn { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 14px; margin-top: 10px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>GR Plano de Ação</h1>
-                <p>Confirmação de Agendamento de Reunião</p>
-              </div>
-              <div class="content">
-                <h2 style="margin-top: 0; font-size: 18px; color: #1e3a8a;">Olá, João!</h2>
-                <p>Um novo compromisso de trabalho foi agendado com sucesso no portal de agendamentos. Veja os detalhes abaixo:</p>
-                
-                <div class="details-box">
-                  <div class="detail-row">
-                    <span class="label">Vendedor:</span>
-                    <span class="value" style="font-weight: 600;">${schedule.vendedor}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Projeto:</span>
-                    <span class="value">${schedule.projeto}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Data da Reunião:</span>
-                    <span class="value" style="font-weight: 600; color: #2563eb;">${formattedDate}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Horário Solicitado:</span>
-                    <span class="value" style="font-weight: 600; color: #2563eb;">${schedule.horario}</span>
-                  </div>
-                  <div class="detail-row">
-                    <span class="label">Status:</span>
-                    <span class="value" style="color: #10b981; font-weight: 600;">✓ Confirmado</span>
-                  </div>
-                </div>
-                
-                <div style="text-align: center;">
-                  <a href="${process.env.APP_URL || '#'}" class="btn">Acessar Portal de Agendamentos</a>
-                </div>
-              </div>
-              <div class="footer">
-                <p>Este é um e-mail automático enviado pelo Portal de Agendamentos GR Plano de Ação.</p>
-                <p>&copy; ${new Date().getFullYear()} GR Plano de Ação. Todos os direitos reservados.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
-      };
-
-      await transporter.sendMail(mailOptions);
+        subject: subject,
+        html: htmlBody
+      });
+      
       console.log(`[Email Service] E-mail enviado com sucesso via SMTP para ${emailTo}!`);
+      
+      await saveNotificationLog({
+        id: notifId,
+        to: emailTo,
+        subject: subject,
+        body: htmlBody,
+        status: "Enviado",
+        createdAt: new Date().toISOString()
+      });
     } catch (serverMailErr) {
       console.error("[Email Service] Erro crítico ao disparar e-mail via SMTP:", serverMailErr);
+      
+      await saveNotificationLog({
+        id: notifId,
+        to: emailTo,
+        subject: subject,
+        body: htmlBody,
+        status: "Erro",
+        errorDetails: serverMailErr instanceof Error ? serverMailErr.message : String(serverMailErr),
+        createdAt: new Date().toISOString()
+      });
     }
   }
 
   // Helper functions for Firestore storage
+  const saveNotificationLog = async (log: { id: string; to: string; subject: string; body: string; status: string; errorDetails?: string; createdAt: string }) => {
+    try {
+      await setDoc(doc(db, "notifications", log.id), log);
+      return true;
+    } catch (e) {
+      console.error("Erro ao salvar log de notificação no Firestore:", e);
+      return false;
+    }
+  };
+
+  const loadNotificationsFromFirestore = async () => {
+    try {
+      const qSnapshot = await getDocs(collection(db, "notifications"));
+      const list: any[] = [];
+      qSnapshot.forEach((docRef) => {
+        list.push({ id: docRef.id, ...docRef.data() });
+      });
+      // Sort in-memory descending by date/time
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return list;
+    } catch (e) {
+      console.error("Erro ao carregar logs de notificações do Firestore:", e);
+      return [];
+    }
+  };
+
+  const clearNotificationLogsFromFirestore = async () => {
+    try {
+      const qSnapshot = await getDocs(collection(db, "notifications"));
+      for (const docRef of qSnapshot.docs) {
+        await deleteDoc(doc(db, "notifications", docRef.id));
+      }
+      return true;
+    } catch (e) {
+      console.error("Erro ao limpar logs de notificações do Firestore:", e);
+      return false;
+    }
+  };
+
   const loadSchedulesFromFirestore = async () => {
     try {
       const qSnapshot = await getDocs(collection(db, "schedules"));
@@ -290,18 +360,40 @@ async function startServer() {
   });
 
   app.post("/api/test-email", async (req, res) => {
-    try {
-      const emailTo = process.env.EMAIL_NOTIFY_TO || "joao.giaretta@az-armaturen.com.br";
-      const host = process.env.SMTP_HOST;
-      const port = process.env.SMTP_PORT;
-      const user = process.env.SMTP_USER;
-      const pass = process.env.SMTP_PASS;
+    const emailTo = process.env.EMAIL_NOTIFY_TO || "joao.giaretta@az-armaturen.com.br";
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const notifId = `notif-test-${Date.now()}`;
+    const subject = "🔔 Teste de Conexão: Alertas GR Plano de Ação";
+    const testHtml = `
+      <div style="font-family: inherit; background-color: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 500px; margin: auto;">
+        <h2 style="color: #2563eb; margin-top: 0;">Conexão SMTP Funcionando!</h2>
+        <p>Parabéns, João! Suas credenciais de e-mail foram validadas com sucesso.</p>
+        <p>A partir de agora, toda vez que um vendedor realizar ou agendar uma GR, você receberá instantaneamente um e-mail formatado com todos os detalhes.</p>
+        <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 16px 0;" />
+        <p style="font-size: 11px; color: #64748b; margin-bottom: 0;">Portal GR Plano de Ação - Notificador Automático</p>
+      </div>
+    `;
 
+    try {
       if (!host || !user || !pass) {
+        const simMsg = "O SMTP não foi configurado nas variáveis de ambiente. Por isso o portal está usando o Simulador de E-mail (mensagens impressas apenas nos logs do console ou exibidas no histórico abaixo).";
+        
+        await saveNotificationLog({
+          id: notifId,
+          to: emailTo,
+          subject: subject,
+          body: testHtml,
+          status: "Simulado",
+          createdAt: new Date().toISOString()
+        });
+
         return res.json({
           success: false,
           mode: "simulator",
-          message: "O SMTP não foi configurado nas variáveis de ambiente. Por isso o portal está usando o Simulador de E-mail (mensagens impressas apenas nos logs do console).",
+          message: simMsg,
           details: {
             emailTo,
             smtp_configured: false
@@ -319,22 +411,22 @@ async function startServer() {
         },
       });
 
-      const mailOptions = {
+      await transporter.sendMail({
         from: `"Portal GR" <${user}>`,
         to: emailTo,
-        subject: "🔔 Teste de Conexão: Alertas GR Plano de Ação",
-        html: `
-          <div style="font-family: inherit; background-color: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; max-width: 500px; margin: auto;">
-            <h2 style="color: #2563eb; margin-top: 0;">Conexão SMTP Funcionando!</h2>
-            <p>Parabéns, João! Suas credenciais de e-mail foram validadas com sucesso.</p>
-            <p>A partir de agora, toda vez que um vendedor realizar ou agendar uma GR, você receberá instantaneamente um e-mail formatado com todos os detalhes.</p>
-            <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 16px 0;" />
-            <p style="font-size: 11px; color: #64748b; margin-bottom: 0;">Portal GR Plano de Ação - Notificador Automático</p>
-          </div>
-        `
-      };
+        subject: subject,
+        html: testHtml
+      });
 
-      await transporter.sendMail(mailOptions);
+      await saveNotificationLog({
+        id: notifId,
+        to: emailTo,
+        subject: subject,
+        body: testHtml,
+        status: "Enviado",
+        createdAt: new Date().toISOString()
+      });
+
       res.json({
         success: true,
         mode: "smtp",
@@ -342,11 +434,44 @@ async function startServer() {
       });
     } catch (err) {
       console.error("Erro no envio do e-mail de teste:", err);
+      const errStr = err instanceof Error ? err.message : String(err);
+      
+      await saveNotificationLog({
+        id: notifId,
+        to: emailTo,
+        subject: subject,
+        body: testHtml,
+        status: "Erro",
+        errorDetails: errStr,
+        createdAt: new Date().toISOString()
+      });
+
       res.status(500).json({
         success: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: errStr,
         message: "Ocorreu um erro real ao se comunicar com o seu servidor SMTP. Verifique o host, usuário, senha, porta ou se o seu provedor de e-mail bloqueou a conexão securitária."
       });
+    }
+  });
+
+  // Endpoints to manage notifications
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const list = await loadNotificationsFromFirestore();
+      res.json(list);
+    } catch (e) {
+      console.error("Erro na API GET /api/notifications:", e);
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  app.post("/api/notifications/clear", async (req, res) => {
+    try {
+      await clearNotificationLogsFromFirestore();
+      res.json({ success: true, message: "Histórico de notificações limpo com sucesso." });
+    } catch (e) {
+      console.error("Erro na API POST /api/notifications/clear:", e);
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
     }
   });
 

@@ -31,12 +31,52 @@
         }
       },
       "required": ["id", "vendedor", "projeto", "data", "horario", "createdAt"]
+    },
+    "notification": {
+      "title": "Notification",
+      "description": "A logged email notification or simulator message",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique notification identifier"
+        },
+        "to": {
+          "type": "string",
+          "description": "Recipient email address"
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject"
+        },
+        "body": {
+          "type": "string",
+          "description": "HTML or plain text body of the email"
+        },
+        "status": {
+          "type": "string",
+          "description": "Trigger status (Simulado, Enviado, Erro)"
+        },
+        "errorDetails": {
+          "type": "string",
+          "description": "Optional SMTP connection error detail string"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Log creation timestamp"
+        }
+      },
+      "required": ["id", "to", "subject", "body", "status", "createdAt"]
     }
   },
   "firestore": {
     "/schedules/{scheduleId}": {
       "schema": "schedule",
       "description": "Collection of all booked meetings"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "notification",
+      "description": "Logs of automatic and simulated email notifications"
     }
   }
 }
