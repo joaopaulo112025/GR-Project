@@ -56,6 +56,12 @@ export function isSystemBlockedDate(dateStr: string): { blocked: boolean; reason
   if (dateStr === "2026-06-12") {
     return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 12/06/2026)" };
   }
+  if (dateStr === "2026-06-15") {
+    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 15/06/2026)" };
+  }
+  if (dateStr === "2026-06-16") {
+    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 16/06/2026)" };
+  }
 
   try {
     const parts = dateStr.split("-");
