@@ -254,7 +254,6 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               const isSelected = horario === slot;
               const blockInfo = isSystemBlockedSlot(slot);
               const isBlocked = blockInfo.blocked || isDateBlocked;
-              const blockReason = isDateBlocked ? "Data Bloqueada" : blockInfo.reason;
 
               return (
                 <button
@@ -265,9 +264,7 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                   onClick={() => setHorario(slot)}
                   className={`flex flex-col text-left p-3 rounded-xl border transition-all relative ${
                     isBlocked
-                      ? isDateBlocked
-                        ? "bg-red-50/60 border-red-200 text-red-700 cursor-not-allowed opacity-80"
-                        : "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-75"
+                      ? "bg-red-50/30 border-red-150 text-red-600 cursor-not-allowed opacity-90"
                       : isOccupied
                       ? "bg-slate-50 border-slate-150 text-slate-400 cursor-not-allowed opacity-75"
                       : isSelected
@@ -277,35 +274,25 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                 >
                   <div className="flex items-center gap-1.5 font-medium text-sm">
                     {isBlocked ? (
-                      isDateBlocked ? (
-                        <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                      ) : (
-                        <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      )
+                      <Clock className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     ) : (
                       <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     )}
-                    <span className={isBlocked ? "line-through opacity-75" : ""}>
+                    <span className={isBlocked ? "text-red-600 font-semibold" : ""}>
                       {TIME_SLOT_LABELS[slot]}
                     </span>
                   </div>
-                  <span className={`text-[10px] mt-1 font-sans font-medium flex items-center gap-1 ${
-                    isDateBlocked
-                      ? "text-red-600 font-semibold"
-                      : isBlocked
-                      ? "text-amber-600"
-                      : "text-inherit opacity-85"
-                  }`}>
-                    {isBlocked ? (
-                      <span>{blockReason}</span>
-                    ) : isOccupied ? (
-                      `Reservado por: ${booking.vendedor}`
-                    ) : isSelected ? (
-                      "Selecionado"
-                    ) : (
-                      "Livre"
-                    )}
-                  </span>
+                  {!isBlocked && (
+                    <span className="text-[10px] mt-1 font-sans font-medium flex items-center gap-1 text-inherit opacity-85">
+                      {isOccupied ? (
+                        `Reservado por: ${booking.vendedor}`
+                      ) : isSelected ? (
+                        "Selecionado"
+                      ) : (
+                        "Livre"
+                      )}
+                    </span>
+                  )}
                 </button>
               );
             })}

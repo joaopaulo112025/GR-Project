@@ -11,65 +11,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"booking" | "calendar">("booking");
   const [preselectedDate, setPreselectedDate] = useState<string>("");
 
-  // Seed sample data if localStorage is empty
+  // Fetch schedules from backend database
   useEffect(() => {
-    const stored = localStorage.getItem("gr_schedules");
-    if (stored) {
-      try {
-        setSchedules(JSON.parse(stored));
-      } catch (e) {
-        console.error("Erro ao ler agendamentos do localStorage:", e);
-      }
-    } else {
-      // Create high-quality seeded records relative to today
-      const today = new Date();
-      
-      const formatDateOffset = (days: number) => {
-        const target = new Date(today);
-        target.setDate(today.getDate() + days);
-        return target.toISOString().split("T")[0];
-      };
-
-       const seedData: GRSchedule[] = [
-        {
-          id: "seed-1",
-          vendedor: "Carlos Silva",
-          projeto: "GR Plano de ação",
-          data: formatDateOffset(0), // Today
-          horario: "09:00",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "seed-2",
-          vendedor: "Mariana Mendes",
-          projeto: "GR Plano de ação",
-          data: formatDateOffset(0), // Today
-          horario: "14:30",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "seed-3",
-          vendedor: "Roberto Souza",
-          projeto: "GR Plano de ação",
-          data: formatDateOffset(1), // Tomorrow
-          horario: "10:00",
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      setSchedules(seedData);
-      localStorage.setItem("gr_schedules", JSON.stringify(seedData));
-    }
+    fetch("/api/schedules")
+      .then((res) => res.json())
+      .then((data) => setSchedules(data))
+      .catch((err) => console.error("Erro ao buscar agendamentos do backend:", err));
   }, []);
-
-  // Save changes to localStorage
-  const saveSchedules = (updated: GRSchedule[]) => {
-    setSchedules(updated);
-    localStorage.setItem("gr_schedules", JSON.stringify(updated));
-  };
 
   const handleAddSchedule = (newData: { vendedor: string; projeto: string; data: string; horario: string }) => {
     const newSchedule: GRSchedule = {
-      id: `gr-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: `gr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       vendedor: newData.vendedor,
       projeto: newData.projeto,
       data: newData.data,
@@ -77,12 +29,28 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    saveSchedules([newSchedule, ...schedules]);
+    fetch("/api/schedules", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newSchedule),
+    })
+      .then((res) => res.json())
+      .then((saved) => {
+        setSchedules((prev) => [saved, ...prev]);
+      })
+      .catch((err) => console.error("Erro ao enviar novo agendamento:", err));
   };
 
   const handleDeleteSchedule = (id: string) => {
-    const updated = schedules.filter(item => item.id !== id);
-    saveSchedules(updated);
+    fetch(`/api/schedules/${id}`, {
+      method: "DELETE",
+    })
+      .then(() => {
+        setSchedules((prev) => prev.filter(item => item.id !== id));
+      })
+      .catch((err) => console.error("Erro ao excluir agendamento do backend:", err));
   };
 
   // Compute neat KPI statistics

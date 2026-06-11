@@ -251,8 +251,8 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                 <div className="flex-1 space-y-1 overflow-y-auto max-h-[60px] scrollbar-thin">
                   {isBlocked ? (
                     <div className="text-[10px] text-red-650 font-medium px-1 flex flex-col justify-center leading-tight py-1 font-sans">
-                      <span className="font-semibold opacity-90 truncate text-red-600" title={blockInfo.reason}>
-                        {blockInfo.reason.replace("Bloqueado (", "").replace(")", "")}
+                      <span className="font-semibold opacity-90 truncate text-red-600" title="Bloqueado">
+                        Bloqueado
                       </span>
                     </div>
                   ) : (

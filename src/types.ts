@@ -35,14 +35,8 @@ export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
 };
 
 export function isSystemBlockedSlot(slot: TimeSlot): { blocked: boolean; reason: string } {
-  if (slot === "07:00") {
-    return { blocked: true, reason: "Bloqueado (07:00 - 08:00)" };
-  }
-  if (slot === "12:00") {
-    return { blocked: true, reason: "Bloqueado (Almoço 12:00 - 13:30)" };
-  }
-  if (slot === "17:00") {
-    return { blocked: true, reason: "Bloqueado (Espanha / Fora de Horário)" };
+  if (slot === "07:00" || slot === "12:00" || slot === "17:00") {
+    return { blocked: true, reason: "Bloqueado" };
   }
   return { blocked: false, reason: "" };
 }
@@ -50,17 +44,8 @@ export function isSystemBlockedSlot(slot: TimeSlot): { blocked: boolean; reason:
 export function isSystemBlockedDate(dateStr: string): { blocked: boolean; reason: string } {
   if (!dateStr) return { blocked: false, reason: "" };
 
-  if (dateStr === "2026-06-11") {
-    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 11/06/2026)" };
-  }
-  if (dateStr === "2026-06-12") {
-    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 12/06/2026)" };
-  }
-  if (dateStr === "2026-06-15") {
-    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 15/06/2026)" };
-  }
-  if (dateStr === "2026-06-16") {
-    return { blocked: true, reason: "Bloqueado (Data Reservada/Feriado - 16/06/2026)" };
+  if (dateStr === "2026-06-11" || dateStr === "2026-06-12" || dateStr === "2026-06-15" || dateStr === "2026-06-16") {
+    return { blocked: true, reason: "Bloqueado" };
   }
 
   try {
@@ -72,7 +57,7 @@ export function isSystemBlockedDate(dateStr: string): { blocked: boolean; reason
       const dateObj = new Date(year, month, day);
       const dayOfWeek = dateObj.getDay(); // 0 = Sunday, 6 = Saturday
       if (dayOfWeek === 0 || dayOfWeek === 6) {
-        return { blocked: true, reason: `Bloqueado (Fim de semana: ${dayOfWeek === 0 ? "Domingo" : "Sábado"})` };
+        return { blocked: true, reason: "Bloqueado" };
       }
     }
   } catch (e) {
