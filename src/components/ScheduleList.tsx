@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, Calendar, User, Folder, Clock, Trash2, Filter, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { GRSchedule, TIME_SLOT_LABELS, TimeSlot } from "../types";
+import { GRSchedule, TIME_SLOT_LABELS, TimeSlot, getLocalDateString } from "../types";
 
 interface ScheduleListProps {
   schedules: GRSchedule[];
@@ -14,7 +14,7 @@ export default function ScheduleList({ schedules, onDeleteSchedule }: ScheduleLi
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Parse schedules with filters
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateString();
 
   const filteredSchedules = schedules.filter(item => {
     // Search query matches

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ChevronLeft, ChevronRight, Calendar, Clock, User, CheckCircle, Lightbulb, Sparkles, AlertCircle } from "lucide-react";
-import { GRSchedule, TIME_SLOT_LABELS, TimeSlot, isSystemBlockedDate } from "../types";
+import { GRSchedule, TIME_SLOT_LABELS, TimeSlot, isSystemBlockedDate, getLocalDateString } from "../types";
 
 interface CalendarWideViewProps {
   schedules: GRSchedule[];
@@ -66,7 +66,7 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateString();
 
   return (
     <div id="calendar-wide-view-card" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 md:p-8 flex flex-col gap-6">

@@ -67,3 +67,10 @@ export function isSystemBlockedDate(dateStr: string): { blocked: boolean; reason
   return { blocked: false, reason: "" };
 }
 
+export function getLocalDateString(dateInput: Date = new Date()): string {
+  const year = dateInput.getFullYear();
+  const month = String(dateInput.getMonth() + 1).padStart(2, "0");
+  const day = String(dateInput.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+

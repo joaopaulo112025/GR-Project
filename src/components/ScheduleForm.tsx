@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { User, Folder, Calendar, Clock, AlertCircle, CheckCircle, Sparkles, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { GRSchedule, TimeSlot, TIME_SLOT_LABELS, isSystemBlockedSlot, isSystemBlockedDate } from "../types";
+import { GRSchedule, TimeSlot, TIME_SLOT_LABELS, isSystemBlockedSlot, isSystemBlockedDate, getLocalDateString } from "../types";
 
 interface ScheduleFormProps {
   onAddSchedule: (schedule: { vendedor: string; projeto: string; data: string; horario: string }) => void;
@@ -102,7 +102,7 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
     if (preselectedDate) {
       setData(preselectedDate);
     } else if (!data) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getLocalDateString();
       setData(today);
     }
   }, [preselectedDate]);
@@ -164,7 +164,7 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="flex-1">
                 <span className="font-medium">{successMessage}</span>
-                <p className="text-xs text-emerald-600/90 mt-0.5">O agendamento foi registrado e salvo localmente.</p>
+                <p className="text-xs text-emerald-600/90 mt-0.5">O agendamento foi registrado e salvo com sucesso no portal.</p>
               </div>
             </motion.div>
           )}
@@ -233,7 +233,7 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                   ? "bg-red-50/55 border-red-300 text-red-900 focus:ring-red-500/20 focus:border-red-500"
                   : "bg-slate-50/50 border-slate-200 text-slate-800 focus:ring-blue-500/25 focus:border-blue-500"
               }`}
-              min={new Date().toISOString().split("T")[0]} // Blocks past dates
+              min={getLocalDateString()} // Blocks past dates
               required
             />
           </div>
@@ -254,43 +254,36 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               const isSelected = horario === slot;
               const blockInfo = isSystemBlockedSlot(slot);
               const isBlocked = blockInfo.blocked || isDateBlocked;
+              const isUnavailable = isBlocked || isOccupied;
 
               return (
                 <button
                   key={slot}
                   id={`slot-${slot}`}
                   type="button"
-                  disabled={isOccupied || isBlocked}
+                  disabled={isUnavailable}
                   onClick={() => setHorario(slot)}
-                  className={`flex flex-col text-left p-3 rounded-xl border transition-all relative ${
-                    isBlocked
-                      ? "bg-red-50/30 border-red-150 text-red-600 cursor-not-allowed opacity-90"
-                      : isOccupied
-                      ? "bg-slate-50 border-slate-150 text-slate-400 cursor-not-allowed opacity-75"
+                  className={`flex flex-col justify-center text-left p-3 rounded-xl border transition-all relative min-h-[52px] ${
+                    isUnavailable
+                      ? "bg-red-50/20 border-red-150 text-red-600 cursor-not-allowed"
                       : isSelected
                       ? "bg-blue-50 shadow-sm border-blue-500 text-blue-800 ring-2 ring-blue-500/10"
                       : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700 active:scale-98"
                   }`}
                 >
                   <div className="flex items-center gap-1.5 font-medium text-sm">
-                    {isBlocked ? (
+                    {isUnavailable ? (
                       <Clock className="w-3.5 h-3.5 text-red-500 shrink-0" />
                     ) : (
                       <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     )}
-                    <span className={isBlocked ? "text-red-600 font-semibold" : ""}>
+                    <span className={isUnavailable ? "text-red-600 font-semibold" : ""}>
                       {TIME_SLOT_LABELS[slot]}
                     </span>
                   </div>
-                  {!isBlocked && (
+                  {!isUnavailable && (
                     <span className="text-[10px] mt-1 font-sans font-medium flex items-center gap-1 text-inherit opacity-85">
-                      {isOccupied ? (
-                        `Reservado por: ${booking.vendedor}`
-                      ) : isSelected ? (
-                        "Selecionado"
-                      ) : (
-                        "Livre"
-                      )}
+                      {isSelected ? "Selecionado" : "Livre"}
                     </span>
                   )}
                 </button>

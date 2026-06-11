@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
 
 async function startServer() {
   const app = express();
@@ -9,26 +11,86 @@ async function startServer() {
 
   app.use(express.json());
 
-  const DATA_FILE = path.join(process.cwd(), "schedules.json");
+  // Initialize Firebase with the provisioned configuration
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  const firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
-  // Load schedules helper
-  const loadSchedules = () => {
-    if (fs.existsSync(DATA_FILE)) {
-      try {
-        return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-      } catch (e) {
-        console.error("Erro ao ler arquivo de agendamentos:", e);
-      }
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+
+  enum OperationType {
+    CREATE = "create",
+    UPDATE = "update",
+    DELETE = "delete",
+    LIST = "list",
+    GET = "get",
+    WRITE = "write",
+  }
+
+  interface FirestoreErrorInfo {
+    error: string;
+    operationType: OperationType;
+    path: string | null;
+    authInfo: {
+      userId?: string | null;
+      email?: string | null;
+      emailVerified?: boolean | null;
+      isAnonymous?: boolean | null;
+      tenantId?: string | null;
+      providerInfo?: {
+        providerId?: string | null;
+        email?: string | null;
+      }[];
     }
-    return [];
+  }
+
+  function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+    const errInfo: FirestoreErrorInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: null,
+        email: null,
+        emailVerified: null,
+        isAnonymous: null,
+        tenantId: null,
+        providerInfo: []
+      },
+      operationType,
+      path
+    };
+    console.error("Firestore Error: ", JSON.stringify(errInfo));
+    throw new Error(JSON.stringify(errInfo));
+  }
+
+  // Helper functions for Firestore storage
+  const loadSchedulesFromFirestore = async () => {
+    try {
+      const qSnapshot = await getDocs(collection(db, "schedules"));
+      const list: any[] = [];
+      qSnapshot.forEach((docRef) => {
+        list.push({ id: docRef.id, ...docRef.data() });
+      });
+      return list;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.GET, "schedules");
+    }
   };
 
-  // Save schedules helper
-  const saveSchedules = (data: any) => {
+  const saveScheduleToFirestore = async (schedule: any) => {
     try {
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
+      await setDoc(doc(db, "schedules", schedule.id), schedule);
+      return true;
     } catch (e) {
-      console.error("Erro ao salvar arquivo de agendamentos:", e);
+      handleFirestoreError(e, OperationType.WRITE, `schedules/${schedule.id}`);
+    }
+  };
+
+  const deleteScheduleFromFirestore = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "schedules", id));
+      return true;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `schedules/${id}`);
     }
   };
 
@@ -37,59 +99,87 @@ async function startServer() {
   const formatDateOffset = (days: number) => {
     const target = new Date(today);
     target.setDate(today.getDate() + days);
-    return target.toISOString().split("T")[0];
+    const y = target.getFullYear();
+    const m = String(target.getMonth() + 1).padStart(2, "0");
+    const d = String(target.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
   };
 
-  let schedules = loadSchedules();
-  if (schedules.length === 0) {
-    schedules = [
-      {
-        id: "seed-1",
-        vendedor: "Carlos Silva",
-        projeto: "GR Plano de ação",
-        data: formatDateOffset(0), // Today
-        horario: "09:00",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "seed-2",
-        vendedor: "Mariana Mendes",
-        projeto: "GR Plano de ação",
-        data: formatDateOffset(0), // Today
-        horario: "14:30",
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: "seed-3",
-        vendedor: "Roberto Souza",
-        projeto: "GR Plano de ação",
-        data: formatDateOffset(1), // Tomorrow
-        horario: "10:00",
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    saveSchedules(schedules);
-  }
+  const seedFirestoreIfEmpty = async () => {
+    try {
+      const current = await loadSchedulesFromFirestore();
+      if (current.length === 0) {
+        console.log("Firestore está sem agendamentos. Criando dados iniciais de teste...");
+        const seedData = [
+          {
+            id: "seed-1",
+            vendedor: "Carlos Silva",
+            projeto: "GR Plano de ação",
+            data: formatDateOffset(0), // Today
+            horario: "09:00",
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: "seed-2",
+            vendedor: "Mariana Mendes",
+            projeto: "GR Plano de ação",
+            data: formatDateOffset(0), // Today
+            horario: "14:30",
+            createdAt: new Date().toISOString(),
+          },
+          {
+            id: "seed-3",
+            vendedor: "Roberto Souza",
+            projeto: "GR Plano de ação",
+            data: formatDateOffset(1), // Tomorrow
+            horario: "10:00",
+            createdAt: new Date().toISOString(),
+          },
+        ];
+        for (const item of seedData) {
+          await saveScheduleToFirestore(item);
+        }
+        console.log("Seeding inicial concluído no Firestore.");
+      }
+    } catch (e) {
+      console.error("Erro no seeding do Firestore:", e);
+    }
+  };
 
-  // API endpoints
-  app.get("/api/schedules", (req, res) => {
-    res.json(loadSchedules());
+  // Run seeding as background promise
+  seedFirestoreIfEmpty();
+
+  // API endpoints mapping to Firestore
+  app.get("/api/schedules", async (req, res) => {
+    try {
+      const list = await loadSchedulesFromFirestore();
+      res.json(list || []);
+    } catch (e) {
+      console.error("Erro na API GET /api/schedules:", e);
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
-  app.post("/api/schedules", (req, res) => {
-    const newSchedule = req.body;
-    const current = loadSchedules();
-    const updated = [newSchedule, ...current];
-    saveSchedules(updated);
-    res.status(201).json(newSchedule);
+  app.post("/api/schedules", async (req, res) => {
+    try {
+      const newSchedule = req.body;
+      await saveScheduleToFirestore(newSchedule);
+      res.status(201).json(newSchedule);
+    } catch (e) {
+      console.error("Erro na API POST /api/schedules:", e);
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
-  app.delete("/api/schedules/:id", (req, res) => {
-    const { id } = req.params;
-    const current = loadSchedules();
-    const updated = current.filter((s: any) => s.id !== id);
-    saveSchedules(updated);
-    res.json({ success: true });
+  app.delete("/api/schedules/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await deleteScheduleFromFirestore(id);
+      res.json({ success: true });
+    } catch (e) {
+      console.error(`Erro na API DELETE /api/schedules/${req.params.id}:`, e);
+      res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+    }
   });
 
   // Vite middleware for development

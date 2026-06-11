@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Calendar, Clock, ShieldCheck, CheckCircle2 } from "lucide-react";
-import { GRSchedule } from "./types";
+import { GRSchedule, getLocalDateString } from "./types";
 import ScheduleForm from "./components/ScheduleForm";
 import ScheduleList from "./components/ScheduleList";
 import CalendarWideView from "./components/CalendarWideView";
@@ -60,7 +60,7 @@ export default function App() {
   };
 
   // Compute neat KPI statistics
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateString();
   const schedulesToday = schedules.filter(s => s.data === todayStr).length;
   const totalSchedules = schedules.length;
 

@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "schedule": {
+      "title": "Schedule",
+      "description": "A scheduled meeting slot for GR Plano de ação",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique schedule identifier"
+        },
+        "vendedor": {
+          "type": "string",
+          "description": "Name of the seller booking the slot"
+        },
+        "projeto": {
+          "type": "string",
+          "description": "Name of the project (GR Plano de ação)"
+        },
+        "data": {
+          "type": "string",
+          "description": "The selected date (YYYY-MM-DD)"
+        },
+        "horario": {
+          "type": "string",
+          "description": "Selected 45-minute time slot identifier"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp in ISO format"
+        }
+      },
+      "required": ["id", "vendedor", "projeto", "data", "horario", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/schedules/{scheduleId}": {
+      "schema": "schedule",
+      "description": "Collection of all booked meetings"
+    }
+  }
+}
