@@ -239,6 +239,12 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
               required
             />
           </div>
+          {data && isSystemBlockedDate(data).blocked && (
+            <p className="mt-1.5 text-xs text-red-600 font-medium flex items-center gap-1 bg-red-50/40 p-2 border border-red-100 rounded-lg">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>Esta data está bloqueada: <strong>{isSystemBlockedDate(data).reason || "Não disponível"}</strong></span>
+            </p>
+          )}
         </div>
 
         {/* Horários Interativos */}
@@ -290,7 +296,7 @@ export default function ScheduleForm({ onAddSchedule, existingSchedules, presele
                   )}
                   {isBlocked && (
                     <span className="text-[10px] mt-0.5 font-sans font-medium text-red-500/70 truncate max-w-full">
-                      {blockInfo.reason || "Indisponível"}
+                      {isDateBlocked ? (dateBlock.reason || "Bloqueado") : (blockInfo.reason || "Indisponível")}
                     </span>
                   )}
                   {!isUnavailable && (

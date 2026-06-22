@@ -44,6 +44,13 @@ export function isSystemBlockedSlot(slot: TimeSlot): { blocked: boolean; reason:
 export function isSystemBlockedDate(dateStr: string): { blocked: boolean; reason: string } {
   if (!dateStr) return { blocked: false, reason: "" };
 
+  if (dateStr === "2026-06-25") {
+    return { blocked: true, reason: "Visita em cliente" };
+  }
+  if (dateStr === "2026-06-30" || dateStr === "2026-07-02") {
+    return { blocked: true, reason: "Evento AZ" };
+  }
+
   if (dateStr === "2026-06-11" || dateStr === "2026-06-12" || dateStr === "2026-06-15" || dateStr === "2026-06-16") {
     return { blocked: true, reason: "Bloqueado" };
   }

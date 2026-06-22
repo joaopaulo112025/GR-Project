@@ -228,10 +228,10 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                   {isBlocked ? (
                     <span 
                       className="text-[9px] font-bold px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full flex items-center gap-1 shrink-0"
-                      title={blockInfo.reason}
+                      title={blockInfo.reason || "Bloqueado"}
                     >
                       <AlertCircle className="w-2.5 h-2.5" />
-                      Bloqueado
+                      {blockInfo.reason || "Bloqueado"}
                     </span>
                   ) : totalBookedCount > 0 ? (
                     <span 
@@ -251,8 +251,8 @@ export default function CalendarWideView({ schedules, onSelectDate }: CalendarWi
                 <div className="flex-1 space-y-1 overflow-y-auto max-h-[60px] scrollbar-thin">
                   {isBlocked ? (
                     <div className="text-[10px] text-red-650 font-medium px-1 flex flex-col justify-center leading-tight py-1 font-sans">
-                      <span className="font-semibold opacity-90 truncate text-red-600" title="Bloqueado">
-                        Bloqueado
+                      <span className="font-semibold opacity-90 truncate text-red-600" title={blockInfo.reason || "Bloqueado"}>
+                        {blockInfo.reason || "Bloqueado"}
                       </span>
                     </div>
                   ) : (
